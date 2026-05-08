@@ -125,6 +125,7 @@ _REAL_DATA_URL = (
 
 def load_real_matches(
     start_year: int = 2018,
+    end_year: int | None = None,
     decay_rate: float = 0.003,
     wc_teams_only: bool = False,
 ) -> pd.DataFrame:
@@ -149,7 +150,11 @@ def load_real_matches(
 
     df = pd.read_csv(io.StringIO(r.text))
     df["date"] = pd.to_datetime(df["date"])
-    df = df[df["date"].dt.year >= start_year].copy()
+    year_col = df["date"].dt.year
+    mask_year = year_col >= start_year
+    if end_year is not None:
+        mask_year = mask_year & (year_col < end_year)
+    df = df[mask_year].copy()
 
     # Standardise team names
     df["home_team"] = df["home_team"].replace(TEAM_NAME_MAP)

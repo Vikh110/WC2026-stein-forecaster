@@ -26,7 +26,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import poisson
 
-from wc2026.data import load_all
+from wc2026.data import load_all, load_real_matches
 from wc2026.dixon_coles import DixonColesModel
 from wc2026.js_shrinkage import JSEstimator
 
@@ -48,8 +48,14 @@ def analytical_risk(dc: DixonColesModel, team_df: pd.DataFrame,
     rng    = np.random.default_rng(seed)
     teams  = dc.teams_
     confs  = np.array([team_df["confederation"].get(t, "UNKNOWN") for t in teams])
-    log_att = np.log(dc.attack_.values)
-    n_match = dc.n_matches_.values.astype(float)
+    assert dc.attack_ is not None and dc.n_matches_ is not None
+    log_att  = np.log(dc.attack_.to_numpy(dtype=float))
+    # Use effective_n (sum of decay weights) if available — governs actual MLE variance.
+    # Falls back to raw match count only when the model was fit without weights.
+    if dc.effective_n_ is not None:
+        n_match = dc.effective_n_.reindex(dc.teams_).fillna(1.0).to_numpy(dtype=float)
+    else:
+        n_match  = dc.n_matches_.to_numpy(dtype=float)
     sigma_sq = 1.0 / np.maximum(n_match, 1.0)
 
     rows = []
@@ -78,7 +84,7 @@ def analytical_risk(dc: DixonColesModel, team_df: pd.DataFrame,
         rows.append({
             "confederation": conf,
             "n_teams":       p,
-            "avg_n_matches": float(n_match[idx].mean()),
+            "avg_n_eff":     round(float(np.mean(n_match[idx])), 2),
             "sigma_bar_sq":  round(sig_bar, 6),
             "risk_naive":    round(r_naive, 6),
             "risk_js":       round(r_js,    6),
@@ -142,7 +148,8 @@ def risk_vs_nmatches(dc: DixonColesModel, team_df: pd.DataFrame,
     rng = np.random.default_rng(seed)
     teams   = dc.teams_
     confs   = np.array([team_df["confederation"].get(t, "UNKNOWN") for t in teams])
-    log_att = np.log(dc.attack_.values)
+    assert dc.attack_ is not None
+    log_att = np.log(dc.attack_.to_numpy(dtype=float))
 
     # use all teams together (p = all qualified)
     idx = np.where(confs != "UNKNOWN")[0]
@@ -170,7 +177,93 @@ def risk_vs_nmatches(dc: DixonColesModel, team_df: pd.DataFrame,
     return pd.DataFrame(rows)
 
 
-# ── 4. Empirical JS benefit vs sample size (for notebook, not main pipeline) ──
+# ── 4. FIFA ranking baseline model ───────────────────────────────────────────
+
+class FifaBaselineModel:
+    """
+    Simplest possible baseline: attack/defence derived directly from FIFA
+    ranking points via linear interpolation (no fitting, no data needed).
+
+    Duck-typed to match DixonColesModel so it works with match_log_loss().
+    Used to answer: does Dixon-Coles (±JS) actually beat a ranking-only model?
+    """
+
+    HOME_ADV = 1.10
+
+    def __init__(self, team_df: pd.DataFrame) -> None:
+        self.teams_    = team_df.index.tolist()
+        self.attack_   = team_df["true_att"].copy()
+        self.defence_  = team_df["true_def"].copy()
+        self.home_adv_ = self.HOME_ADV
+
+    def goal_lambdas(self, home: str, away: str,
+                     neutral: bool = True) -> tuple[float, float]:
+        ha = 1.0 if neutral else self.home_adv_
+        lh = float(self.attack_.get(home, 1.2)) * float(self.defence_.get(away, 1.0)) * ha
+        la = float(self.attack_.get(away, 1.2)) * float(self.defence_.get(home, 1.0))
+        return lh, la
+
+
+# ── 5. Proper temporal backtest ───────────────────────────────────────────────
+
+def proper_wc_backtest(
+    wc_history: pd.DataFrame,
+    team_df: pd.DataFrame,
+    n_years_train: int = 4,
+) -> pd.DataFrame:
+    """
+    Temporally honest backtest: for each WC year, train ONLY on matches from
+    the n_years_train years BEFORE that tournament, then evaluate on the WC.
+
+    Compares three models:
+      - FIFA baseline: attack/defence from FIFA ranking points, no fitting
+      - Naive DC:      Dixon-Coles MLE on pre-WC matches
+      - JS:            Dixon-Coles + James-Stein shrinkage on pre-WC matches
+
+    Only years with enough pre-WC training data are included.
+    WC 2018 is evaluable (train 2014-2017); WC 2022 not in tidytuesday history.
+    """
+    rows = []
+    for year in [2018]:          # extend if wc_history gains 2022+
+        test = wc_history[wc_history["year"] == year].copy()
+        if len(test) < 5:
+            continue
+
+        try:
+            train = load_real_matches(
+                start_year=year - n_years_train,
+                end_year=year,
+                decay_rate=0.003,
+            )
+        except Exception:
+            continue
+
+        if len(train) < 100:
+            continue
+
+        dc_pre   = DixonColesModel().fit(train)
+        js_pre   = JSEstimator(dc_pre, team_df)
+        fifa_mdl = FifaBaselineModel(team_df)
+
+        ll_fifa  = match_log_loss(fifa_mdl, test)
+        ll_naive = match_log_loss(dc_pre,   test)
+        ll_js    = match_log_loss(js_pre,   test)
+
+        rows.append({
+            "year":             year,
+            "n_train_matches":  len(train),
+            "n_test_matches":   len(test),
+            "log_loss_fifa":    round(ll_fifa,  4),
+            "log_loss_naive":   round(ll_naive, 4),
+            "log_loss_js":      round(ll_js,    4),
+            "dc_vs_fifa_%":     round(100 * (ll_fifa  - ll_naive) / ll_fifa,  2),
+            "js_vs_naive_%":    round(100 * (ll_naive - ll_js)    / ll_naive, 3),
+        })
+
+    return pd.DataFrame(rows)
+
+
+# ── 6. Empirical JS benefit vs sample size (for notebook, not main pipeline) ──
 
 def js_benefit_by_sample_size(
     match_df: pd.DataFrame,
