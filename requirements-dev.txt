@@ -1,0 +1,17 @@
+-r requirements.txt
+
+# Testing
+pytest>=7.4,<9.0
+pytest-cov>=4.1,<6.0
+
+# Linting & formatting
+ruff>=0.1,<1.0
+
+# Type checking
+mypy>=1.7,<2.0
+
+# Notebooks
+jupyter>=1.0
+ipykernel>=6.0
+ipywidgets>=8.0
+nbformat>=5.9
