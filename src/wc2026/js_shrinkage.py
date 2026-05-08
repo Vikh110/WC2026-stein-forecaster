@@ -191,7 +191,7 @@ class JSEstimator:
             self.shrinkage_info_.append({
                 "confederation":    conf,
                 "n_teams":          p,
-                "avg_n_matches":    float(n_match[idx].mean()),
+                "avg_n_eff":        round(float(np.asarray(n_match[idx], dtype=float).mean()), 2),
                 "median_sigma_sq":  med_sig,
                 "norm_sq_att":      norm_att,
                 "sf_att_scaled":    sf_att,
@@ -263,7 +263,7 @@ if __name__ == "__main__":
     print("SHRINKAGE DIAGNOSTICS PER CONFEDERATION")
     print("=" * 60)
     st = js.shrinkage_table()
-    print(st[["n_teams","avg_n_matches","median_sigma_sq","norm_sq_att","sf_att_scaled"]].to_string())
+    print(st[["n_teams","avg_n_eff","median_sigma_sq","norm_sq_att","sf_att_scaled"]].to_string())
 
     print("\n" + "=" * 60)
     print("TOP 15 TEAMS: NAIVE vs JS STRENGTH")
