@@ -140,8 +140,14 @@ class JSEstimator:
 
         log_att  = np.log(self.dc.attack_[teams].values)
         log_def  = np.log(self.dc.defence_[teams].values)
-        n_match  = self.dc.n_matches_[teams].values.astype(float)
-        sigma_sq = 1.0 / np.maximum(n_match, 1.0)   # Var(log MLE) ≈ 1/n
+        # Prefer effective_n_ (sum of time-decay weights) when available;
+        # fall back to raw match counts for synthetic/test data.
+        eff_n = self.dc.effective_n_
+        if eff_n is not None:
+            n_match = eff_n[teams].values.astype(float)
+        else:
+            n_match = self.dc.n_matches_[teams].values.astype(float)
+        sigma_sq = 1.0 / np.maximum(n_match, 1.0)   # Var(log MLE) ≈ 1/n_eff
 
         confs = np.array([self._conf_for(t) for t in teams])
 

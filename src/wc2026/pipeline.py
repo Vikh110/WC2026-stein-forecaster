@@ -28,7 +28,7 @@ from wc2026.js_shrinkage import JSEstimator
 from wc2026.simulator import make_draw, monte_carlo
 from wc2026.backtest import analytical_risk, wc_log_loss_comparison, risk_vs_nmatches
 
-OUT = Path(__file__).parent.parent.parent.parent / "outputs"
+OUT = Path(__file__).parent.parent.parent / "outputs"
 OUT.mkdir(exist_ok=True)
 
 N_SIMS   = 100_000
@@ -97,8 +97,8 @@ def plot_win_probs(probs_naive: pd.DataFrame, probs_js: pd.DataFrame,
                   team_df: pd.DataFrame, top_n: int = 20) -> None:
     top_teams = probs_js["p_winner"].nlargest(top_n).index.tolist()
 
-    pn = probs_naive.loc[top_teams, "p_winner"].values * 100
-    pj = probs_js.loc[top_teams,    "p_winner"].values * 100
+    pn = probs_naive.loc[top_teams, "p_winner"].to_numpy(dtype=float) * 100
+    pj = probs_js.loc[top_teams,    "p_winner"].to_numpy(dtype=float) * 100
 
     x  = np.arange(top_n)
     w  = 0.35
@@ -140,8 +140,8 @@ def plot_shrinkage(js: JSEstimator) -> None:
     cmp     = js.comparison_table().reset_index()
     cmp     = cmp.sort_values("att_pct_change", key=abs, ascending=False).head(25)
     teams   = cmp["team"].tolist()
-    shifts  = cmp["att_pct_change"].values
-    n_match = cmp["n_matches"].values
+    shifts  = cmp["att_pct_change"].to_numpy(dtype=float)
+    n_match = cmp["n_matches"].to_numpy(dtype=int)
     bar_colors = [CONF_COLORS.get(r["confederation"], "#888")
                   for _, r in cmp.iterrows()]
 
@@ -220,14 +220,16 @@ def main() -> None:
     team_df, match_df, wc_history = load_all()
     dc_naive = DixonColesModel().fit(match_df)
     js       = JSEstimator(dc_naive, team_df, positive_part=True)
-    print(f"      {len(team_df)} teams, {len(match_df)} matches")
+    src = "real international results (2018–present)" if "weight" in match_df.columns else "synthetic"
+    print(f"      {len(team_df)} WC2026 teams | {len(match_df)} matches ({src})")
 
-    # ── Draw ──
+    # ── Draw: use only the 48 WC2026-qualified teams ──
     print("\n[2/6] Making tournament draw...")
-    strength_js   = js.attack_ / js.defence_
-    conf_series   = team_df["confederation"].reindex(js.dc.teams_).fillna("UNKNOWN")
-    rng_draw      = np.random.default_rng(DRAW_SEED)
-    groups        = make_draw(js.dc.teams_, strength_js, conf_series, rng=rng_draw)
+    wc_teams    = team_df.index.tolist()
+    strength_js = (js.attack_ / js.defence_).reindex(wc_teams)
+    conf_series = team_df["confederation"].reindex(wc_teams)
+    rng_draw    = np.random.default_rng(DRAW_SEED)
+    groups      = make_draw(wc_teams, strength_js, conf_series, rng=rng_draw)
 
     groups_df = pd.DataFrame([
         {"group": chr(65+i), "team": t,
