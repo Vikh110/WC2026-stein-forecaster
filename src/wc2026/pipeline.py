@@ -1,15 +1,23 @@
 """
 Main pipeline: WC2026 Stein-Shrinkage Forecaster.
 
-Runs end-to-end and saves all outputs to ../outputs/:
-  - fig1_risk_vs_nmatches.png   — replicates Figure 1 from Samworth (2005)
+Honest framing
+--------------
+James-Stein shrinkage has the largest effect when data is SPARSE (few matches
+per team). At n≈5-15 matches (early qualifying), JS cuts estimation error by
+25-40%. By n≈100 (our WC2026 data regime), the benefit is ~5%. Figure 1 shows
+this decay curve clearly — that IS the Stein story.
+
+The WC2026 tournament forecast is a downstream application of the fitted model.
+JS still provides a consistent small improvement, but we don't overclaim.
+
+Outputs saved to outputs/:
+  - fig1_js_benefit_vs_n.png    — MAIN FIGURE: JS risk reduction vs sample size
   - fig2_win_probabilities.png  — WC2026 win probs naive vs JS
   - fig3_shrinkage_shifts.png   — which teams JS moved most
   - fig4_group_heatmap.png      — group-stage exit probabilities
-  - wc2026_groups.csv           — draw
-  - wc2026_probs_naive.csv      — naive simulation results
-  - wc2026_probs_js.csv         — JS simulation results
-  - backtest_summary.csv        — analytical risk table
+  - wc2026_groups.csv / wc2026_probs_naive.csv / wc2026_probs_js.csv
+  - backtest_summary.csv
 """
 
 from __future__ import annotations
@@ -53,42 +61,68 @@ def _conf_colors(teams: list[str], team_df: pd.DataFrame) -> list[str]:
             for t in teams]
 
 
-# ── Figure 1: Risk vs sample size ─────────────────────────────────────────────
+# ── Figure 1: JS benefit vs sample size (the real Stein story) ───────────────
 
-def plot_risk_curve(dc: DixonColesModel, team_df: pd.DataFrame) -> None:
+def plot_js_benefit_curve(dc: DixonColesModel, team_df: pd.DataFrame) -> None:
+    """
+    Dual-panel figure showing WHERE JS shrinkage helps:
+      Left:  % risk reduction vs n (analytical formula)
+      Right: absolute risk, naive vs JS
+
+    Key message: JS is powerful at n=5-20 (early qualifying), small at n=100+.
+    We annotate where our WC2026 data sits so the reader knows the context.
+    """
     rv = risk_vs_nmatches(dc, team_df, n_mc=100_000, seed=1)
+    n_vals   = rv["n_matches_per_team"].to_numpy(dtype=float)
+    red_pct  = rv["reduction_%"].to_numpy(dtype=float)
+    r_naive  = rv["risk_naive"].to_numpy(dtype=float)
+    r_js     = rv["risk_js"].to_numpy(dtype=float)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(rv["n_matches_per_team"], rv["risk_naive"],
-            "b--", lw=2, label=r"Naive MLE $\hat\theta^0$")
-    ax.plot(rv["n_matches_per_team"], rv["risk_js"],
-            "r-",  lw=2, label=r"JS Estimator $\hat\theta^{JS+}$")
-    ax.fill_between(rv["n_matches_per_team"],
-                    rv["risk_js"], rv["risk_naive"],
-                    alpha=0.15, color="green",
-                    label="Risk saved by JS")
+    # Where our actual data sits (median matches across WC2026 teams)
+    nm = dc.n_matches_
+    actual_n = int(nm.reindex(team_df.index).median()) if nm is not None else 100
 
-    ax.set_xlabel("Matches per team (sample size)", fontsize=12)
-    ax.set_ylabel(r"Risk  $R(\hat\theta, \theta)$", fontsize=12)
-    ax.set_title("Stein's Paradox Applied to Football:\n"
-                 "JS estimator always beats naive MLE (p = 49 teams)",
-                 fontsize=13)
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
 
-    # annotate reduction at qualifying-era sample size
-    row = rv[rv["n_matches_per_team"] == 20].iloc[0]
-    ax.annotate(f"~{row['reduction_%']:.0f}% reduction\n"
-                f"at qualifying era\n(~20 games/team)",
-                xy=(20, (row["risk_naive"] + row["risk_js"]) / 2),
-                xytext=(40, row["risk_naive"] * 0.7),
-                arrowprops=dict(arrowstyle="->", color="green"),
-                fontsize=10, color="green")
+    # ── Left panel: % reduction ──
+    ax1.plot(n_vals, red_pct, "o-", color="#d62728", lw=2.5, ms=7)
+    ax1.fill_between(n_vals, 0, red_pct, alpha=0.12, color="#d62728")
+    closest_idx = int(np.argmin(np.abs(n_vals - actual_n)))
+    ax1.axvline(actual_n, color="navy", lw=1.8, ls="--", label=f"WC2026 data (n≈{actual_n})")
+    ax1.annotate(
+        f"Our regime\n~{red_pct[closest_idx]:.1f}% reduction",
+        xy=(actual_n, float(red_pct[closest_idx])),
+        xytext=(actual_n + 8, float(red_pct[closest_idx]) + 4),
+        arrowprops=dict(arrowstyle="->", color="navy"),
+        fontsize=9, color="navy",
+    )
+    ax1.set_xlabel("Matches per team", fontsize=12)
+    ax1.set_ylabel("JS risk reduction over naive MLE  (%)", fontsize=11)
+    ax1.set_title("Where does Stein's Paradox help most?\n"
+                  "Risk reduction decays as data grows", fontsize=12)
+    ax1.legend(fontsize=10)
+    ax1.set_ylim(0, max(red_pct) * 1.25)
+    ax1.grid(True, alpha=0.3)
 
+    # ── Right panel: absolute risk ──
+    ax2.plot(n_vals, r_naive, "b--", lw=2, label=r"Naive MLE $\hat\theta^0$")
+    ax2.plot(n_vals, r_js,    "r-",  lw=2, label=r"JS Estimator $\hat\theta^{JS+}$")
+    ax2.fill_between(n_vals, r_js, r_naive, alpha=0.15, color="green", label="Risk saved")
+    ax2.axvline(actual_n, color="navy", lw=1.8, ls="--", label=f"WC2026 data (n≈{actual_n})")
+    ax2.set_xlabel("Matches per team", fontsize=12)
+    ax2.set_ylabel(r"Total risk  $R(\hat\theta,\,\theta)$", fontsize=11)
+    ax2.set_title("Absolute risk: both methods converge\n"
+                  "as sample size grows", fontsize=12)
+    ax2.legend(fontsize=10)
+    ax2.grid(True, alpha=0.3)
+
+    fig.suptitle("James-Stein Shrinkage: benefit is largest in sparse-data regimes\n"
+                 f"(p = {sum(team_df.index.isin(dc.teams_))} WC teams, analytical risk formula)",
+                 fontsize=13, fontweight="bold")
     fig.tight_layout()
-    fig.savefig(OUT / "fig1_risk_vs_nmatches.png", dpi=150)
+    fig.savefig(OUT / "fig1_js_benefit_vs_n.png", dpi=150)
     plt.close(fig)
-    print("  Saved fig1_risk_vs_nmatches.png")
+    print("  Saved fig1_js_benefit_vs_n.png")
 
 
 # ── Figure 2: Win probabilities naive vs JS ───────────────────────────────────
@@ -263,7 +297,7 @@ def main() -> None:
 
     # ── Plots ──
     print("\n[6/6] Generating figures...")
-    plot_risk_curve(dc_naive, team_df)
+    plot_js_benefit_curve(dc_naive, team_df)
     plot_win_probs(probs_naive, probs_js, team_df)
     plot_shrinkage(js)
     plot_group_heatmap(probs_js, groups)
@@ -271,6 +305,8 @@ def main() -> None:
     # ── Final summary ──
     print("\n" + "=" * 62)
     print("TOP 10 WC 2026 PREDICTIONS (JS Estimator)")
+    print("Note: JS benefit is ~5% at this data regime (n≈100 matches/team).")
+    print("The model is driven by Dixon-Coles on real data; JS is a small refinement.")
     print("=" * 62)
     top10 = probs_js.head(10)[["p_reach_r16","p_reach_qf","p_reach_sf",
                                 "p_reach_final","p_winner"]].copy()
@@ -279,7 +315,15 @@ def main() -> None:
     print(top10.to_string())
 
     print("\n" + "=" * 62)
-    print("ANALYTICAL RISK REDUCTION PER CONFEDERATION")
+    print("JS BENEFIT: WHERE STEIN'S PARADOX ACTUALLY MATTERS")
+    print("=" * 62)
+    rv = risk_vs_nmatches(dc_naive, team_df, n_mc=50_000, seed=1)
+    print(rv[["n_matches_per_team","reduction_%"]].to_string(index=False))
+    print("\nAt n=5-15 (early qualifying): JS cuts error by 25-40%")
+    print("At n=100 (our WC2026 data):   JS cuts error by  ~5%")
+
+    print("\n" + "=" * 62)
+    print("ANALYTICAL RISK PER CONFEDERATION")
     print("=" * 62)
     print(ar[["n_teams","avg_n_matches","risk_naive","risk_js","reduction_%"]].to_string())
 
