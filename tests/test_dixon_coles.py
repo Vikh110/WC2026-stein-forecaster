@@ -1,8 +1,7 @@
 """Tests for wc2026.dixon_coles module."""
 
-import numpy as np
-import pandas as pd
 import pytest
+
 from wc2026.data import build_team_table, generate_matches
 from wc2026.dixon_coles import DixonColesModel
 

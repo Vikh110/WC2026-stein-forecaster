@@ -30,7 +30,6 @@ from wc2026.data import load_all, load_real_matches
 from wc2026.dixon_coles import DixonColesModel
 from wc2026.js_shrinkage import JSEstimator
 
-
 # ── 1. Analytical risk (paper Appendix formula) ───────────────────────────────
 
 def analytical_risk(dc: DixonColesModel, team_df: pd.DataFrame,
@@ -361,7 +360,9 @@ def js_benefit_by_sample_size(
 
 
 if __name__ == "__main__":
-    import sys; sys.path.insert(0, ".")
+    import sys
+
+    sys.path.insert(0, ".")
 
     team_df, match_df, wc_history = load_all()
     dc = DixonColesModel().fit(match_df)

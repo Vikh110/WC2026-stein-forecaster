@@ -25,7 +25,6 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.stats import poisson
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _neg_log_likelihood(params: np.ndarray,

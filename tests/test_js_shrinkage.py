@@ -2,10 +2,10 @@
 
 import numpy as np
 import pytest
+
 from wc2026.data import build_team_table, generate_matches
 from wc2026.dixon_coles import DixonColesModel
-from wc2026.js_shrinkage import JSEstimator, james_stein_scaled, james_stein_hetero
-
+from wc2026.js_shrinkage import JSEstimator, james_stein_hetero, james_stein_scaled
 
 # ── Unit tests for the core JS formulas ──────────────────────────────────────
 

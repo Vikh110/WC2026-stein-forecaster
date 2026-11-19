@@ -17,7 +17,6 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 
-
 # ── Match engine ──────────────────────────────────────────────────────────────
 
 def simulate_match(model, home: str, away: str,
@@ -46,11 +45,17 @@ def play_group(teams: list[str], model,
         for j in range(i + 1, len(teams)):
             h, a    = teams[i], teams[j]
             g_h, g_a = simulate_match(model, h, a, rng, allow_draw=True)
-            gf[h] += g_h; gf[a] += g_a
-            gd[h] += g_h - g_a; gd[a] += g_a - g_h
-            if g_h > g_a:    pts[h] += 3
-            elif g_h < g_a:  pts[a] += 3
-            else:             pts[h] += 1; pts[a] += 1
+            gf[h] += g_h
+            gf[a] += g_a
+            gd[h] += g_h - g_a
+            gd[a] += g_a - g_h
+            if g_h > g_a:
+                pts[h] += 3
+            elif g_h < g_a:
+                pts[a] += 3
+            else:
+                pts[h] += 1
+                pts[a] += 1
     return sorted(teams, key=lambda t: (pts[t], gd[t], gf[t]), reverse=True)
 
 
@@ -130,8 +135,8 @@ def simulate_tournament(model, groups: list[list[str]],
         for h, a in pairs:
             g_h, g_a = simulate_match(model, h, a, rng,
                                       neutral=True, allow_draw=False)
-            w, l = (h, a) if g_h > g_a else (a, h)
-            result[l] = loser_label
+            w, loser = (h, a) if g_h > g_a else (a, h)
+            result[loser] = loser_label
             winners.append(w)
         return [(winners[j], winners[j+1])
                 for j in range(0, len(winners), 2)]
@@ -144,10 +149,10 @@ def simulate_tournament(model, groups: list[list[str]],
     finalists, third_place_teams = [], []
     for h, a in sf_pairs:
         g_h, g_a = simulate_match(model, h, a, rng, neutral=True, allow_draw=False)
-        w, l = (h, a) if g_h > g_a else (a, h)
+        w, loser = (h, a) if g_h > g_a else (a, h)
         finalists.append(w)
-        third_place_teams.append(l)
-        result[l] = "SF"
+        third_place_teams.append(loser)
+        result[loser] = "SF"
 
     # 3rd-place play-off
     g_h, g_a = simulate_match(model, third_place_teams[0], third_place_teams[1],
@@ -226,7 +231,9 @@ def monte_carlo(model, groups: list[list[str]],
 
 
 if __name__ == "__main__":
-    import sys; sys.path.insert(0, ".")
+    import sys
+
+    sys.path.insert(0, ".")
     from data import load_all
     from dixon_coles import DixonColesModel
     from js_shrinkage import JSEstimator

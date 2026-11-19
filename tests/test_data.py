@@ -1,8 +1,8 @@
 """Tests for wc2026.data module."""
 
 import pandas as pd
-import pytest
-from wc2026.data import build_team_table, generate_matches, TEAMS
+
+from wc2026.data import TEAMS, build_team_table, generate_matches
 
 
 def test_team_table_shape():

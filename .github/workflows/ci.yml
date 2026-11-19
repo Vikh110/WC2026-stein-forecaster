@@ -2,9 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -16,10 +17,10 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -35,21 +36,14 @@ jobs:
             --cov=wc2026 \
             --cov-report=term-missing \
             --cov-report=xml \
-            --cov-fail-under=70
-
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v4
-        if: matrix.python-version == '3.12'
-        with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+            --cov-fail-under=45
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip

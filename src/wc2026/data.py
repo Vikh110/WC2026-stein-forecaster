@@ -12,6 +12,7 @@ generate_matches() is kept for reproducible unit testing only.
 from __future__ import annotations
 
 import io
+
 import numpy as np
 import pandas as pd
 import requests

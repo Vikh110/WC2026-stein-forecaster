@@ -22,20 +22,21 @@ Outputs saved to outputs/:
 
 from __future__ import annotations
 
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 from pathlib import Path
 
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
+from wc2026.backtest import FifaBaselineModel, analytical_risk, proper_wc_backtest, risk_vs_nmatches
 from wc2026.data import load_all
 from wc2026.dixon_coles import DixonColesModel
 from wc2026.js_shrinkage import JSEstimator
 from wc2026.simulator import make_draw, monte_carlo
-from wc2026.backtest import (analytical_risk, risk_vs_nmatches,
-                             proper_wc_backtest, FifaBaselineModel)
 
 OUT = Path(__file__).parent.parent.parent / "outputs"
 OUT.mkdir(exist_ok=True)
@@ -151,7 +152,7 @@ def plot_win_probs(probs_naive: pd.DataFrame, probs_js: pd.DataFrame,
     ax.set_xticklabels(top_teams, rotation=40, ha="right", fontsize=9)
     ax.set_ylabel("P(Win World Cup)  %", fontsize=12)
     ax.set_title("WC 2026 Win Probabilities: Naive MLE vs James-Stein Estimator\n"
-                 f"(100,000 Monte Carlo simulations)", fontsize=13)
+                 "(100,000 Monte Carlo simulations)", fontsize=13)
     ax.legend(fontsize=11)
     ax.grid(axis="y", alpha=0.3)
 
