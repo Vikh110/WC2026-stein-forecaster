@@ -32,7 +32,6 @@ import pandas as pd
 
 from wc2026.dixon_coles import DixonColesModel
 
-
 # ── Core JS formula (variance-scaled) ────────────────────────────────────────
 
 def james_stein_scaled(X: np.ndarray, theta_0: np.ndarray,
@@ -136,7 +135,6 @@ class JSEstimator:
 
     def _fit(self) -> None:
         teams    = self.dc.teams_
-        n        = len(teams)
 
         log_att  = np.log(self.dc.attack_[teams].values)
         log_def  = np.log(self.dc.defence_[teams].values)
@@ -252,7 +250,9 @@ class JSEstimator:
 
 
 if __name__ == "__main__":
-    import sys; sys.path.insert(0, ".")
+    import sys
+
+    sys.path.insert(0, ".")
     from data import load_all
 
     team_df, match_df, _ = load_all()

@@ -19,11 +19,11 @@ pipeline     : full orchestrator
 __version__ = "1.0.0"
 __author__  = "Vishwas Khandelwal"
 
-from wc2026.data import load_all, build_team_table, generate_matches
+from wc2026.backtest import analytical_risk, risk_vs_nmatches, wc_log_loss_comparison
+from wc2026.data import build_team_table, generate_matches, load_all
 from wc2026.dixon_coles import DixonColesModel
 from wc2026.js_shrinkage import JSEstimator
 from wc2026.simulator import make_draw, monte_carlo
-from wc2026.backtest import analytical_risk, wc_log_loss_comparison, risk_vs_nmatches
 
 __all__ = [
     "load_all",

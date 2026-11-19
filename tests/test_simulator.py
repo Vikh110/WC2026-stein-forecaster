@@ -2,10 +2,11 @@
 
 import numpy as np
 import pytest
+
 from wc2026.data import build_team_table, generate_matches
 from wc2026.dixon_coles import DixonColesModel
 from wc2026.js_shrinkage import JSEstimator
-from wc2026.simulator import make_draw, simulate_tournament, monte_carlo, play_group
+from wc2026.simulator import make_draw, monte_carlo, play_group, simulate_tournament
 
 
 @pytest.fixture(scope="module")

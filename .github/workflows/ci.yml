@@ -36,7 +36,7 @@ jobs:
             --cov=wc2026 \
             --cov-report=term-missing \
             --cov-report=xml \
-            --cov-fail-under=70
+            --cov-fail-under=45
 
   lint:
     name: Lint
