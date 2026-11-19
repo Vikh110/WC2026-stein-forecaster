@@ -2,7 +2,7 @@
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/Vikh110/wc2026-stein-forecaster/actions/workflows/ci.yml/badge.svg)](https://github.com/Vikh110/wc2026-stein-forecaster/actions)
+[![CI](https://github.com/Vikh110/WC2026-stein-forecaster/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/Vikh110/WC2026-stein-forecaster/actions/workflows/ci.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 A rigorous application of **James-Stein shrinkage estimation** to international football, built on top of a Dixon-Coles Poisson goals model fit on **3,700+ real match results**.
